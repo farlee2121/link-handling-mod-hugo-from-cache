@@ -1,3 +1,3 @@
-module github.com/danielfdickinson/link-handling-mod-hugo-dfd
+module github.com/farlee2121/link-handling-mod-hugo-from-cache
 
 go 1.17
