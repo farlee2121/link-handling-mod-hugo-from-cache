@@ -1,0 +1,69 @@
+---
+name: build-and-verify
+on:
+  pull_request:
+    types:
+      - assigned
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
+      - 'v[0-9]*'
+  push:
+    branches:
+      - main
+      - 'v[0-9]*'
+jobs:
+  check-source-code-validity:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Verify content formatting validity (Markdown lint)"
+        uses: DavidAnson/markdownlint-cli2-action@v5
+        with:
+          globs: |
+            README.md
+            exampleSite/content/*/*.md
+            exampleSite/content/**/*.md
+  build-unminified-site:
+    needs: check-source-code-validity
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        hugo: ["0.80.0", "0.88.1", "latest"]
+    steps:
+      - name: "Build Site with Hugo and Audit"
+        uses: danielfdickinson/build-audit-action-hugo-dfd@main
+        with:
+          hugo-version: ${{ matrix.hugo }}
+          upload-site-as: unminified-site-${{ matrix.hugo }}
+          use-lfs: false
+          source-directory: exampleSite
+  validate-unminified-html:
+    needs: build-unminified-site
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        hugo: ["0.80.0", "0.88.1", "latest"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Validate exampleSite HTML"
+        uses: danielfdickinson/validate-html-action-hugo-dfd@v0.2
+        with:
+          download-site-as: unminified-site-${{ matrix.hugo }}
+  check-links:
+    needs: build-unminified-site
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        hugo: ["0.80.0", "0.88.1", "latest"]
+    steps:
+      - name: "Check internal links"
+        uses: danielfdickinson/link-check-action-hugo-dfd@v0.2
+        with:
+          canonical-root: https://example.com/
+          download-site-as: unminified-site-${{ matrix.hugo }}
+          upload-logs-as: check-links-failure
+          upload-logs-retention: 3
+          skip-check-patterns: "https://www.facebook.com/sharer.php https://www.linkedin.com/shareArticle https://linkedin.com/shareArticle https://twitter.com/share https://www.pexels.com https://pixabay.com http://doi.org/ https://doi.org/ https://www.nature.com/ https://arxiv.org/ https://cbc.ca https://www.cbc.ca /a-nonexistant-internal-link example.com example.net"
